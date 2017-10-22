@@ -1,0 +1,57 @@
+{
+  "name": "ratio-amz-rekognition",
+  "version": "1.0.0",
+  "description": "Amazon Rekognition sample service",
+  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mzratio/ratio-amz-rekognition.git"
+  },
+  "dependencies": {
+    "aurelia-dependency-injection": "^1.3.1",
+    "aurelia-polyfills": "^1.2.1",
+    "aws-sdk": "^2.109.0",
+    "axios": "^0.16.2",
+    "babel-polyfill": "^6.26.0",
+    "jsonwebtoken": "^8.1.0",
+    "lodash": "^4.17.4"
+  },
+  "devDependencies": {
+    "babel-core": "^6.24.1",
+    "babel-eslint": "^8.0.1",
+    "babel-jest": "^21.0.0",
+    "babel-loader": "^7.0.0",
+    "babel-plugin-lodash": "^3.2.11",
+    "babel-plugin-transform-decorators-legacy": "^1.3.4",
+    "babel-preset-env": "^1.6.0",
+    "eslint": "^4.9.0",
+    "eslint-config-standard": "^10.2.1",
+    "eslint-plugin-babel": "^4.1.1",
+    "eslint-plugin-import": "^2.2.0",
+    "eslint-plugin-jest": "^21.0.0",
+    "eslint-plugin-node": "^5.2.0",
+    "eslint-plugin-promise": "^3.5.0",
+    "eslint-plugin-standard": "^3.0.1",
+    "jest": "^21.2.1",
+    "serverless": "^1.23.0",
+    "serverless-aws-documentation": "^0.8.0",
+    "serverless-dynamodb-autoscaling": "^0.6.1",
+    "serverless-webpack": "^3.1.2",
+    "webpack": "^3.7.1"
+  },
+  "scripts": {
+    "eslint": "eslint ./src",
+    "deploy:local": ". ./envvars.local.sh && npm run deploy",
+    "deploy:func:local": ". ./envvars.local.sh && serverless deploy function --region $REGION --stage $STAGE --function",
+    "deploy": "npm run eslint && serverless deploy --stage $STAGE --region $REGION --verbose",
+    "package": "npm run eslint && serverless package --stage $STAGE --region $REGION --verbose",
+    "release": "../tools/github-release mzratio/ratio-serverless-blog $SERVICE_VERSION master '' '.serverless/*'",
+    "remove:local": ". ./envvars.local.sh && npm run remove",
+    "remove": "serverless remove --stage $STAGE --region $REGION --verbose",
+    "test": "export NODE_ENV=test && export SUPPRESS_LOGGER=true && jest ./src/**/*.test.js --env=node",
+    "test:ci": "npm test -- --ci",
+    "test:watch": "npm test -- --watch",
+    "secret": ". ./envvars.local.sh && sh ./tools/encryptAndStoreSecret.sh $STAGE $REGION"
+  },
+  "license": "ISC"
+}

@@ -1,0 +1,21 @@
+{
+  "plugins": [
+    "lodash",
+    "transform-decorators-legacy"
+  ],
+  "presets": [
+    [
+      "env",
+      {
+        "targets": {
+          "node": "6.10"
+        }
+      }
+    ]
+  ],
+  "env": {
+    "test": {
+      "sourceMaps": "inline"
+    }
+  }
+}

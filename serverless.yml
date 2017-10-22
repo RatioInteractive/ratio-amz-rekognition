@@ -1,0 +1,166 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: 
+  name: ${self:custom.serviceName}
+  awsKmsKeyArn: ${self:custom.kmsKeyArn}
+
+package:
+  individually: true
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+# frameworkVersion: "=X.X.X"
+
+provider:
+  name: aws
+  runtime: nodejs6.10
+  memorySize: 128
+  environment:
+    jwtSecret: ${s3:${self:custom.serviceName}-${opt:stage}-secrets/jwtSecret}
+    LOG_LEVEL: debug
+  
+
+  iamRoleStatements:
+    -
+      Effect: Allow
+      Action:
+          - 'kms:Decrypt'
+      Resource: ${self:custom.kmsKeyArn}
+    -
+      Effect: Allow
+      Action:
+        - dynamodb:DescribeTable
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:${opt:region}:${self:custom.accountId}:table/*"
+    -
+      Effect: Allow
+      Action:
+        - rekognition:ListCollections
+        - rekognition:CreateCollection
+        - rekognition:IndexFaces
+        - rekognition:SearchFacesByImage
+      Resource: "arn:aws:rekognition:${opt:region}:${self:custom.accountId}:collection/*"
+    -
+      Effect: Allow
+      Action:
+        - s3:GetObject
+      Resource: "arn:aws:s3:::${self:custom.serviceName}-${opt:stage}-photos/*"
+
+    -
+      Effect: Allow
+      Action:
+        - sns:Publish
+      Resource: ${self:custom.matchesSNSTopicArn}
+
+plugins:
+  - serverless-webpack
+  - serverless-aws-documentation
+  - serverless-dynamodb-autoscaling
+
+custom:
+  serviceName: ratio-amz-rekognition
+  accountId: ${env:${opt:stage}_AWS_ACCOUNT_ID}
+  kmsKeyArn: ${env:${opt:stage}_AWS_KMS_KEY_ARN}
+  facesMetadataTableName: ${self:custom.serviceName}-${opt:stage}-faces-metadata
+  matchesSNSTopicName: ${self:custom.serviceName}-${opt:stage}-matches-topic
+  matchesSNSTopicArn: arn:aws:sns:${opt:region}:${self:custom.accountId}:${self:custom.matchesSNSTopicName}
+  serviceVersion: ${env:SERVICE_VERSION}
+  capacities:
+    - table: facesMetadataTable
+      read:
+        minimum: 10       # Minimum read capacity
+        maximum: 1000     # Maximum read capacity
+        usage: 0.75       # Targeted usage percentage
+      write:
+        minimum: 10       # Minimum write capacity
+        maximum: 200      # Maximum write capacity
+        usage: 0.5        # Targeted usage percentage
+
+
+functions:
+  indexFace:
+    handler: src/handlers/indexFace/index.default
+    memorySize: 128
+    timeout: 30
+    events:
+      - s3:
+          bucket: ${self:custom.serviceName}-${opt:stage}-photos
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: indexFaces/
+            - suffix: .jpg
+    environment:
+      facesMetadataTable: ${self:custom.facesMetadataTableName}
+
+  searchFaces:
+    handler: src/handlers/searchFaces/index.default
+    memorySize: 128
+    timeout: 30
+    events:
+      - s3:
+          bucket: ${self:custom.serviceName}-${opt:stage}-photos
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: searchFaces/
+            - suffix: .jpg
+    environment:
+      facesMetadataTable: ${self:custom.facesMetadataTableName}
+      matchesSNSTopic: ${self:custom.matchesSNSTopicArn}
+
+  serviceStatus:
+    handler: src/handlers/serviceStatus/index.default
+    memorySize: 128
+    timeout: 5
+    events:
+      - http:
+          path: /
+          method: GET
+          authorizer: apiAuthorizer
+    environment:
+      serviceVersion: ${self:custom.serviceVersion}
+
+  apiAuthorizer:
+    handler: src/handlers/apiAuthorizer/index.default
+
+# you can add CloudFormation resource templates here
+resources:
+  Resources:
+    facesMetadataTable:
+      Type: "AWS::DynamoDB::Table"
+      Properties: 
+        AttributeDefinitions: 
+          - 
+            AttributeName: "faceId"
+            AttributeType: "S"
+        KeySchema: 
+          - 
+            AttributeName: "faceId"
+            KeyType: "HASH"
+        ProvisionedThroughput: 
+          ReadCapacityUnits: "10"
+          WriteCapacityUnits: "10"
+        TableName: "${self:custom.facesMetadataTableName}"
+
+    matchesSNSTopic:
+      Type: "AWS::SNS::Topic"
+      Properties:
+        TopicName: "${self:custom.matchesSNSTopicName}"
+        Subscription:
+          - Endpoint: "${env:${opt:stage}_SNS_EMAIL}"
+            Protocol: "email"
