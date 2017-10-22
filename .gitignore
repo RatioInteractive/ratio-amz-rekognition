@@ -1,0 +1,11 @@
+# package directories
+node_modules
+
+# Serverless directories
+.serverless
+
+# Optional npm cache directory
+.npm
+
+envvars.local.sh
+npm-debug*
